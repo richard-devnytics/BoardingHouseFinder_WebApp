@@ -1,0 +1,86 @@
+<?php
+// Include the database connection file
+include("../inc/db.php");
+
+// Include PHPMailer
+require '../PHPMailer/src/PHPMailer.php';
+require '../PHPMailer/src/SMTP.php';
+
+// Check if the user is not logged in, redirect to login page
+if (!isset($_SESSION['admin_loggedin']) || $_SESSION['admin_loggedin'] !== true) {
+    header("Location: admin_login.php");
+    exit();
+}
+
+// Check if the 'id' parameter is set in the URL
+if (isset($_GET['id'])) {
+    $tenantId = $_GET['id'];
+
+    // SQL query to update the tenant status to 'confirmed'
+    $sqlUpdateTenant = "UPDATE tenants SET status = 'blocked' WHERE tenant_id = ?";
+    $stmtUpdate = $con->prepare($sqlUpdateTenant);
+
+    if ($stmtUpdate) {
+        $stmtUpdate->bind_param("i", $tenantId);
+
+        // Execute the update statement
+        if ($stmtUpdate->execute()) {
+
+            $sqlUpdateRoom = " UPDATE holiday_homes SET availability_status= 'not_available' WHERE tenant_id = ?";
+            $stmtUpdateRoom=$con->prepare($sqlUpdateRoom);
+            if($stmtUpdateRoom){
+                $stmtUpdateRoom->bind_param("i", $tenantId);
+                $stmtUpdateRoom->execute();
+            }
+            // Fetch the tenant's email address
+            $sqlFetchEmail = "SELECT email FROM tenants WHERE tenant_id = ?";
+            $stmtEmail = $con->prepare($sqlFetchEmail);
+
+            if ($stmtEmail) {
+                $stmtEmail->bind_param("i", $tenantId);
+                $stmtEmail->execute();
+                $stmtEmail->bind_result($tenantEmail);
+                $stmtEmail->fetch();
+                $stmtEmail->close();
+
+                // Send confirmation email to tenant
+                $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+
+                try {
+                    // Server settings
+                    $mail->isSMTP();
+                    $mail->Host = 'smtp.gmail.com';
+                    $mail->SMTPAuth = true;
+                    $mail->Username = '';
+                    $mail->Password = '';
+                    $mail->SMTPSecure = 'tls';
+                    $mail->Port = 587;
+
+                    // Recipients
+                    $mail->setFrom('', 'Tueogan');
+                    $mail->addAddress($tenantEmail);
+
+                    // Content
+                    $mail->isHTML(true);
+                    $mail->Subject = ' Action Required: Your Account has been Temporarily Blocked';
+                    $mail->Body = 'Dear Owner,<br><br>Your account with Tueogan has been temporarily blocked for violations of terms and conditions. Please Contact Administrator.<br><br>Thank you!<br>From: Tueogan-Admin';
+
+                    $mail->send();
+                    echo '<script>alert("Owner status was blocked. Notice was sent through email."); window.location.href = "view_tenants.php";</script>';
+                    exit();
+                } catch (Exception $e) {
+                    echo "Message could not be sent to owner. Mailer Error: {$mail->ErrorInfo}";
+                }
+            }
+        } else {
+            echo "Error updating owner status: " . $stmtUpdate->error;
+        }
+
+        $stmtUpdate->close();
+    } else {
+        echo "Prepare statement error: " . $con->error;
+    }
+} else {
+    echo "Missing owner ID parameter.";
+}
+?>
