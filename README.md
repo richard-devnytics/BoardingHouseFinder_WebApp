@@ -26,7 +26,7 @@ This project includes an interactive map, real-time chat between tenants and lan
 
 - **Frontend:** HTML, CSS, JavaScript
 - **Backend:** PHP (native), MySQL
-- **Libraries/Tools:** PHPMailer (email), Google Maps API, Stripe or PayMongo for payments
+- **Libraries/Tools:** PHPMailer (email), Leaflet Maps, PayMongo for payments
 
 ---
 
